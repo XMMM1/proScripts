@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+cd ~/workspace/
+LOGFILE="/var/log/sleep.log"
+if [ ! -f $LOGFILE ]; then
+	sudo touch $LOGFILE
+fi
+
+sudo chmod 777 $LOGFILE
+WORKSPACE=$(pwd)
+SCRIPT_NAME="$(basename $0)"
+
+
+if [[ "$OSTYPE" == "linux-gnu" ]]
+then
+        AUTO_RUN_SCRIPT_PATH=/etc/pm/sleep.d
+elif [[ "$OSTYPE" == "darwin"* ]]
+then
+        echo 'OSX configure script. Please check script';
+       	exit;
+else
+		echo 'Unknown OS. Please check script';
+       	exit;
+fi
+
+SCRIPT_PATH=$AUTO_RUN_SCRIPT_PATH/$SCRIPT_NAME
+
+# make link of this script to direcotry where they run on boot/halt.. events
+if [ ! -f $AUTO_RUN_SCRIPT_PATH/$SCRIPT_NAME ]; then
+	sudo ln -s $WORKSPACE/proScripts/$SCRIPT_NAME $AUTO_RUN_SCRIPT_PATH/$SCRIPT_NAME
+fi
+
+# make script executable by root
+sudo chown root $AUTO_RUN_SCRIPT_PATH/$SCRIPT_NAME
+
+########## USER AREA: define projects to auto start/stop ###############################################################
+########################################################################################################################
+
+if [[ sudo grep -R "root ALL=NOPASSWD: $SCRIPT_PATH" /etc/sudoers ]]
+then
+	echo "root ALL=NOPASSWD: $AUTO_RUN_SCRIPT_PATH/$SCRIPT_NAME" >> /ets/sudoers
+fi
+
+#declare -a projects=("mercator/tehnika/trunk" "mercator/market/trunk")
+declare -a projects=("mercator/tehnika/trunk")
+
+########################################################################################################################
+########################################################################################################################
+
+case "$1" in
+		resume)
+				ACTION="up"
+        	    sudo echo "Resumed $ACTION from suspend at `date`" >> "$LOGFILE"
+                ;;
+        thaw)
+               ACTION="up"
+               sudo echo "Resumed $ACTION from hibernation at `date`" >> "$LOGFILE"
+                ;;
+        suspend)
+                ACTION="halt"
+                sudo echo "Suspended $ACTION to ram at `date`" >> "$LOGFILE"
+                ;;
+        hibernate)
+                ACTION="halt"
+                sudo echo "Hibernated $ACTION to disk at `date`" >> "$LOGFILE"
+                ;;
+esac
+
+
+# build a command to open all tabs in one terminal
+for i in "${projects[@]}"
+do :
+	PROJECT_DIR=$WORKSPACE'/'$i"";
+	CMD=$CMD'--tab -e "bash -c \"cd '$PROJECT_DIR';sudo ./tools/com ops/vagrant/'$ACTION'; exec bash\""'
+done
+
+# execute and vagrant up/halt on all selected projects
+#echo $CMD
+sudo echo "All project $ACTION at: `date`" >> "$LOGFILE"
+sudo echo "Command executed: $CMD `date`" >> "$LOGFILE"
+#gnome-terminal $CMD
